@@ -27,15 +27,14 @@ import java.util.Properties;
 
 public class OldCodeStationMeasuringApp
 {
-
     public static void main(String[] args)
     {
         Properties config = new Properties();
+
         config.put(StreamsConfig.APPLICATION_ID_CONFIG, "station-measuring-paolo");
         config.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
         config.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         config.put(StreamsConfig.CACHE_MAX_BYTES_BUFFERING_CONFIG, "0");
-        config.put(StreamsConfig.PROCESSING_GUARANTEE_CONFIG, StreamsConfig.EXACTLY_ONCE);
 
         final Serializer<JsonNode> jsonSerializer = new JsonSerializer();
         final Deserializer<JsonNode> jsonDeserializer = new JsonDeserializer();

@@ -34,13 +34,29 @@ public class StationMeasuringTopology
         KStream<String, JsonNode> stationMeasuringTransactions = builder.stream("station-measuring-split-no-avro",
                 Consumed.with(Serdes.String(), jsonSerde));
 
+        // Get only string with Ph > 5.00 using Predicate
+        KStream<String, JsonNode> stationMeasuringPh = stationMeasuringTransactions
+                .filter(new Predicate<String, JsonNode>() {
+                    @Override
+                    public boolean test(String key, JsonNode value) {
+
+                        return value.get("type_measuring").asText().equals("pH")
+                                && value.get("measuring").asDouble() > 7.00;
+                    }
+                });
+
+        // Enviamos a topic para ver datos
+        stationMeasuringPh.to("station-measuring-ph",
+                Produced.with(Serdes.String(), jsonSerde));
+
         // Get only streams with Q Type Measuring
         KStream<String, JsonNode> stationMeasuringQ = stationMeasuringTransactions
                 .filter((key,value) -> value.get("type_measuring").asText().equals("Q"));
 
         // Send data to topic
         //         station-measuring-q
-        stationMeasuringQ.to("station-measuring-q", Produced.with(Serdes.String(), jsonSerde));
+        stationMeasuringQ.to("station-measuring-q",
+                Produced.with(Serdes.String(), jsonSerde));
 
         // Aggregate and sum
         // 1. Create the initial json object for balances

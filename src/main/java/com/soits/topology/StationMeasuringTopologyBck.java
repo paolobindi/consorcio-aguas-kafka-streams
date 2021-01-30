@@ -21,7 +21,7 @@ import org.apache.kafka.streams.state.KeyValueStore;
 
 import java.time.Instant;
 
-public class StationMeasuringTopology
+public class StationMeasuringTopologyBck
 {
     public void createTopology(StreamsBuilder builder)
     {
@@ -33,14 +33,6 @@ public class StationMeasuringTopology
         //        station-measuring-split-no-avro
         KStream<String, JsonNode> stationMeasuringTransactions = builder.stream("station-measuring-split-no-avro",
                 Consumed.with(Serdes.String(), jsonSerde));
-
-        // Get only string with Q TypeMeasuring
-        KStream<String, JsonNode> stationMeasuringQ = stationMeasuringTransactions
-                .filter((key,value) -> value.get("type_measuring").asText().equals("Q"));
-
-        // Enviamos a topic para ver datos
-        stationMeasuringQ.to("kstream-measuring-q",
-                Produced.with(Serdes.String(), jsonSerde));
 
         // Get only string with Ph > 5.00 using Predicate
         KStream<String, JsonNode> stationMeasuringPh = stationMeasuringTransactions
@@ -55,6 +47,15 @@ public class StationMeasuringTopology
 
         // Enviamos a topic para ver datos
         stationMeasuringPh.to("kstream-measuring-ph",
+                Produced.with(Serdes.String(), jsonSerde));
+
+        // Get only streams with Q Type Measuring
+        KStream<String, JsonNode> stationMeasuringQ = stationMeasuringTransactions
+                .filter((key,value) -> value.get("type_measuring").asText().equals("Q"));
+
+        // Send data to topic
+        //         station-measuring-q
+        stationMeasuringQ.to("kstream-measuring-q",
                 Produced.with(Serdes.String(), jsonSerde));
 
         // Aggregate and sum
@@ -78,13 +79,13 @@ public class StationMeasuringTopology
 
         // 3. Send data to intermediate topic:
         //         qbalance
-        qbalanceCount.toStream().to("kstream-qbalance-temp", Produced.with(Serdes.String(), jsonSerde));
+        qbalanceCount.toStream().to("kstream-qbalance", Produced.with(Serdes.String(), jsonSerde));
 
         // Join topics
         //         qbalance
-        //         source-stations_registry
+        //         sourcelast-stations_registry
         final KTable<String, QbalanceDto> qbalanceTable =
-                builder.stream("kstream-qbalance-temp",
+                builder.stream("kstream-qbalance",
                         Consumed.with(Serdes.String(), MySerdesFactory.qbalanceSerde()))
                         .map((key, value) -> new KeyValue<>(value.getCode(), value))
                         .toTable(Materialized.<String, QbalanceDto, KeyValueStore<Bytes, byte[]>>
@@ -93,21 +94,18 @@ public class StationMeasuringTopology
                                 .withValueSerde(MySerdesFactory.qbalanceSerde()));
 
         final KTable<String, RegistryDto> registryTable =
-                builder.stream("source-stations_registry",
+                builder.stream("sourcelast-stations_registry",
                         Consumed.with(Serdes.String(), MySerdesFactory.registrySerde()))
                         .map((key, value) -> new KeyValue<>(value.getCode(), value))
-                        .peek((key,value) -> System.out.println("(registryTable) key,vale = " + key  + "," + value))
                         .toTable(Materialized.<String, RegistryDto, KeyValueStore<Bytes, byte[]>>
                                 as("kstream-registy-materialized")
                                 .withKeySerde(Serdes.String())
                                 .withValueSerde(MySerdesFactory.registrySerde()));
 
-
         final KTable<String, QBalanceRegistryResultDto> balanceRegistryResultTable = qbalanceTable.join(registryTable,
                 QbalanceDto::getCode,
                 (balance, registry) -> {
                     QBalanceRegistryResultDto qBalanceRegistryResultDto = new QBalanceRegistryResultDto();
-
                     qBalanceRegistryResultDto.setCode(registry.getCode());
                     qBalanceRegistryResultDto.setCount(balance.getCount());
                     qBalanceRegistryResultDto.setMeasuring(balance.getMeasuring());
@@ -123,12 +121,11 @@ public class StationMeasuringTopology
         );
 
         // 4. Send data to final result joined topic
-        //         kstream-qbalace-registry-result
+        //         qbalace-registry-result
         balanceRegistryResultTable.toStream()
                 .map((key, value) -> new KeyValue<>(value.getCode(), value))
-                .peek((key,value) -> System.out.println("(balanceRegistryResultTable) key,vale = " + key  + "," + value))
+                .peek((key,value) -> System.out.println("(empResultTable) key,vale = " + key  + "," + value))
                 .to("kstream-qbalace-registry-result", Produced.with(Serdes.String(), MySerdesFactory.qBalanceRegistryResultSerde()));
-
     }
 
     /**

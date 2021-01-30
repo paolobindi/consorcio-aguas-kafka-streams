@@ -3,9 +3,7 @@ package com.soits.topology;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.soits.dto.QBalanceRegistryResultDto;
-import com.soits.dto.QbalanceDto;
-import com.soits.dto.RegistryDto;
+import com.soits.dto.*;
 import com.soits.serde.MySerdesFactory;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.serialization.Serde;
@@ -106,18 +104,21 @@ public class StationMeasuringTopology
         final KTable<String, QBalanceRegistryResultDto> balanceRegistryResultTable = qbalanceTable.join(registryTable,
                 QbalanceDto::getCode,
                 (balance, registry) -> {
-                    QBalanceRegistryResultDto qBalanceRegistryResultDto = new QBalanceRegistryResultDto();
+                    // Create location geo structure
+                    GeoLocationDto geoLocation = new GeoLocationDto();
+                    geoLocation.setLat(registry.getLatitude());
+                    geoLocation.setLon(registry.getLongitude());
 
+                    QBalanceRegistryResultDto qBalanceRegistryResultDto = new QBalanceRegistryResultDto();
                     qBalanceRegistryResultDto.setCode(registry.getCode());
                     qBalanceRegistryResultDto.setCount(balance.getCount());
                     qBalanceRegistryResultDto.setMeasuring(balance.getMeasuring());
                     qBalanceRegistryResultDto.setDate_measuring(balance.getDate_measuring());
-                    qBalanceRegistryResultDto.setLatitude(registry.getLatitude());
-                    qBalanceRegistryResultDto.setLongitude(registry.getLongitude());
+                    qBalanceRegistryResultDto.setGeoLocation(geoLocation);
                     return qBalanceRegistryResultDto;
                 },
                 Materialized.<String, QBalanceRegistryResultDto, KeyValueStore<Bytes, byte[]>>
-                        as("kstream-qbalace-registry-materialized")
+                        as("kstream-qbalace-registry-geo-materialized")
                         .withKeySerde(Serdes.String())
                         .withValueSerde(MySerdesFactory.qBalanceRegistryResultSerde())
         );
@@ -127,7 +128,7 @@ public class StationMeasuringTopology
         balanceRegistryResultTable.toStream()
                 .map((key, value) -> new KeyValue<>(value.getCode(), value))
                 .peek((key,value) -> System.out.println("(balanceRegistryResultTable) key,vale = " + key  + "," + value))
-                .to("kstream-qbalace-registry-result", Produced.with(Serdes.String(), MySerdesFactory.qBalanceRegistryResultSerde()));
+                .to("kstream-qbalace-registry-geo", Produced.with(Serdes.String(), MySerdesFactory.qBalanceRegistryResultSerde()));
 
     }
 

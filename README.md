@@ -2,7 +2,7 @@
 
 Architecture
 
-<a href="https://ibb.co/5nhTq4F"><img src="https://i.ibb.co/2s3qXhN/schema-principale.png" alt="schema-principale" border="0"></a>
+<a href="https://ibb.co/5nhTq4F"><img src="https://i.ibb.co/2s3qXhN/schema-principale.png" alt="Arquitecture Project Consortium Water" border="0"></a>
 
 Technologies proposed:
 - Java 

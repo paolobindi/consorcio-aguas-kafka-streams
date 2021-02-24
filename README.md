@@ -1,4 +1,4 @@
-# Prototype for the Bizcaya Water Consortium's
+# Prototype for the Bizcaya Water Consortium
 
 Architecture
 
